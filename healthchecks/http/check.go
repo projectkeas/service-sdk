@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -27,6 +28,7 @@ func (healthCheck HttpHealthCheck) Check() healthchecks.HealthCheckResult {
 
 	state := healthchecks.HealthCheckState_Unknown
 	duration := 0 * time.Millisecond
+	status := 0
 
 	timeout := defaultRequestTimeout
 	if healthCheck.requestTimeout > 0 {
@@ -55,6 +57,7 @@ func (healthCheck HttpHealthCheck) Check() healthchecks.HealthCheckResult {
 		}()
 
 		if err2 == nil {
+			status = response.StatusCode
 			if response.StatusCode >= http.StatusInternalServerError {
 				state = healthchecks.HealthCheckState_Unhealthy
 			} else if response.StatusCode == http.StatusTooManyRequests {
@@ -80,7 +83,8 @@ func (healthCheck HttpHealthCheck) Check() healthchecks.HealthCheckResult {
 		State:    state,
 		Duration: healthchecks.NewJsonTime(duration),
 		Data: map[string]string{
-			"URL": healthCheck.url,
+			"URL":        healthCheck.url,
+			"StatusCode": fmt.Sprintf("%d", status),
 		},
 	}
 }
