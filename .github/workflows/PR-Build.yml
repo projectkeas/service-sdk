@@ -1,0 +1,26 @@
+name: '[PR] Build'
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          submodules: 'true'
+      - name: Build & Verify
+        uses: projectkeas/.engineering/.github/actions/go-build@main
+        with:
+          appName: ${{ github.repository }}
+          outputDirectory: ./out
+      - name: Build Docker Image
+        uses: projectkeas/.engineering/.github/actions/docker-build@main
+        with:
+          context: ./out
+          pushImagesOnComplete: 'false'
