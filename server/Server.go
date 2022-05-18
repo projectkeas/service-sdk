@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/projectkeas/sdks-service/configuration"
+	"github.com/projectkeas/sdks-service/healthchecks"
 	log "github.com/projectkeas/sdks-service/logger"
 )
 
@@ -22,6 +23,7 @@ type Server struct {
 	configuration configuration.ConfigurationRoot
 	secrets       []string
 	handlerConfig FiberAppFunc
+	healthChecks  []HealthCheck
 }
 
 func New(appName string) Server {
@@ -47,6 +49,11 @@ func (server *Server) WithConfigMap(name string) *Server {
 
 func (server *Server) WithSecret(name string) *Server {
 	server.secrets = append(server.secrets, name)
+	return server
+}
+
+func (server *Server) WithHealthCheck(healthCheck HealthCheck) *Server {
+	server.healthChecks = append(server.healthChecks, healthCheck)
 	return server
 }
 
