@@ -101,6 +101,7 @@ func runServer(server *Server, development bool) {
 		AppName:               server.AppName,
 		DisableDefaultDate:    true,
 		DisableStartupMessage: !development,
+		EnablePrintRoutes:     development,
 	})
 
 	app.Use(recover.New())
@@ -110,7 +111,6 @@ func runServer(server *Server, development bool) {
 	}))
 
 	app.Get("/_system/health", func(context *fiber.Ctx) error {
-
 		result := healthchecks.HealthCheckAggregatedResult{
 			State: healthchecks.HealthCheckState_Healthy,
 		}
