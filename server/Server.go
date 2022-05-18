@@ -3,6 +3,7 @@ package server
 import (
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/gofiber/contrib/fiberzap"
 	"github.com/gofiber/fiber/v2"
@@ -23,7 +24,7 @@ type Server struct {
 	configuration configuration.ConfigurationRoot
 	secrets       []string
 	handlerConfig FiberAppFunc
-	healthChecks  []HealthCheck
+	healthChecks  []healthchecks.HealthCheck
 }
 
 func New(appName string) Server {
@@ -52,7 +53,7 @@ func (server *Server) WithSecret(name string) *Server {
 	return server
 }
 
-func (server *Server) WithHealthCheck(healthCheck HealthCheck) *Server {
+func (server *Server) WithHealthCheck(healthCheck healthchecks.HealthCheck) *Server {
 	server.healthChecks = append(server.healthChecks, healthCheck)
 	return server
 }
@@ -109,8 +110,25 @@ func runServer(server *Server, development bool) {
 	}))
 
 	app.Get("/_system/health", func(context *fiber.Ctx) error {
-		// TODO :: Implement health checks
-		context.SendStatus(204)
+
+		result := healthchecks.HealthCheckAggregatedResult{
+			State: healthchecks.HealthCheckState_Healthy,
+		}
+
+		startTime := time.Now()
+		for _, check := range server.healthChecks {
+			hcr := check.Check()
+			result.Add(hcr)
+		}
+		result.Duration = healthchecks.NewJsonTime(time.Since(startTime))
+
+		context.JSON(result)
+		if result.State.Is(healthchecks.HealthCheckState_Healthy) {
+			context.SendStatus(200)
+		} else {
+			context.SendStatus(503)
+		}
+
 		return nil
 	})
 

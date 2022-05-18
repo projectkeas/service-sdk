@@ -1,10 +1,8 @@
 package healthchecks
 
-type HealthCheckResult string
-
-const (
-	Unknown HealthCheckResult = "Unknown"
-	Healthy = "Healthy"
-	Degraded = "Degraded"
-	Unhealthy = "Unhealthy"
-)
+type HealthCheckResult struct {
+	Name     string            `json:"name"`
+	State    HealthCheckState  `json:"state"`
+	Duration JsonTime          `json:"duration"`
+	Data     map[string]string `json:"data"`
+}
