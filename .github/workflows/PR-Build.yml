@@ -19,8 +19,3 @@ jobs:
         with:
           appName: ${{ github.repository }}
           outputDirectory: ./out
-      - name: Build Docker Image
-        uses: projectkeas/.engineering/.github/actions/docker-build@main
-        with:
-          context: ./out
-          pushImagesOnComplete: 'false'
