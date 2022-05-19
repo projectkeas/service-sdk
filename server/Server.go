@@ -3,7 +3,6 @@ package server
 import (
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/gofiber/contrib/fiberzap"
 	"github.com/gofiber/fiber/v2"
@@ -20,15 +19,15 @@ type FiberAppFunc func(app *fiber.App, configurationAccessor func() *configurati
 type Server struct {
 	AppName string
 
-	configMaps    []string
-	configuration configuration.ConfigurationRoot
-	secrets       []string
-	handlerConfig FiberAppFunc
-	healthChecks  []healthchecks.HealthCheck
+	configMaps        []string
+	configuration     configuration.ConfigurationRoot
+	secrets           []string
+	handlerConfig     FiberAppFunc
+	healthCheckRunner *healthchecks.HealthCheckRunner
 }
 
 func New(appName string) Server {
-	server := Server{AppName: appName}
+	server := Server{AppName: appName, healthCheckRunner: &healthchecks.HealthCheckRunner{}}
 	server.configMaps = []string{}
 	server.secrets = []string{}
 	return server
@@ -53,8 +52,13 @@ func (server *Server) WithSecret(name string) *Server {
 	return server
 }
 
-func (server *Server) WithHealthCheck(healthCheck healthchecks.HealthCheck) *Server {
-	server.healthChecks = append(server.healthChecks, healthCheck)
+func (server *Server) WithReadinessHealthCheck(healthCheck healthchecks.HealthCheck) *Server {
+	server.healthCheckRunner.AddLivenessCheck(healthCheck)
+	return server
+}
+
+func (server *Server) WithLivenessHealthCheck(healthCheck healthchecks.HealthCheck) *Server {
+	server.healthCheckRunner.AddLivenessCheck(healthCheck)
 	return server
 }
 
@@ -110,17 +114,15 @@ func runServer(server *Server, development bool) {
 		Fields: []string{"status", "method", "url", "ip", "ua", "bytesReceived", "bytesSent", "requestId"},
 	}))
 
-	app.Get("/_system/health", func(context *fiber.Ctx) error {
-		result := healthchecks.HealthCheckAggregatedResult{
-			State: healthchecks.HealthCheckState_Healthy,
-		}
+	app.Get("/_system/health/:type?", func(context *fiber.Ctx) error {
+		var result healthchecks.HealthCheckAggregatedResult
 
-		startTime := time.Now()
-		for _, check := range server.healthChecks {
-			hcr := check.Check()
-			result.Add(hcr)
+		switch context.Params("type") {
+		case "ready":
+			result = server.healthCheckRunner.RunReadinessChecks()
+		default:
+			result = server.healthCheckRunner.RunLivenessChecks()
 		}
-		result.Duration = healthchecks.NewJsonTime(time.Since(startTime))
 
 		context.JSON(result)
 		if result.State.Is(healthchecks.HealthCheckState_Healthy) {
