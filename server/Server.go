@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/projectkeas/sdks-service/configuration"
+	"github.com/projectkeas/sdks-service/healthchecks"
 	log "github.com/projectkeas/sdks-service/logger"
 )
 
@@ -18,14 +19,15 @@ type FiberAppFunc func(app *fiber.App, configurationAccessor func() *configurati
 type Server struct {
 	AppName string
 
-	configMaps    []string
-	configuration configuration.ConfigurationRoot
-	secrets       []string
-	handlerConfig FiberAppFunc
+	configMaps        []string
+	configuration     configuration.ConfigurationRoot
+	secrets           []string
+	handlerConfig     FiberAppFunc
+	healthCheckRunner *healthchecks.HealthCheckRunner
 }
 
 func New(appName string) Server {
-	server := Server{AppName: appName}
+	server := Server{AppName: appName, healthCheckRunner: &healthchecks.HealthCheckRunner{}}
 	server.configMaps = []string{}
 	server.secrets = []string{}
 	return server
@@ -47,6 +49,16 @@ func (server *Server) WithConfigMap(name string) *Server {
 
 func (server *Server) WithSecret(name string) *Server {
 	server.secrets = append(server.secrets, name)
+	return server
+}
+
+func (server *Server) WithReadinessHealthCheck(healthCheck healthchecks.HealthCheck) *Server {
+	server.healthCheckRunner.AddLivenessCheck(healthCheck)
+	return server
+}
+
+func (server *Server) WithLivenessHealthCheck(healthCheck healthchecks.HealthCheck) *Server {
+	server.healthCheckRunner.AddLivenessCheck(healthCheck)
 	return server
 }
 
@@ -93,6 +105,7 @@ func runServer(server *Server, development bool) {
 		AppName:               server.AppName,
 		DisableDefaultDate:    true,
 		DisableStartupMessage: !development,
+		EnablePrintRoutes:     development,
 	})
 
 	app.Use(recover.New())
@@ -101,9 +114,23 @@ func runServer(server *Server, development bool) {
 		Fields: []string{"status", "method", "url", "ip", "ua", "bytesReceived", "bytesSent", "requestId"},
 	}))
 
-	app.Get("/_system/health", func(context *fiber.Ctx) error {
-		// TODO :: Implement health checks
-		context.SendStatus(204)
+	app.Get("/_system/health/:type?", func(context *fiber.Ctx) error {
+		var result healthchecks.HealthCheckAggregatedResult
+
+		switch context.Params("type") {
+		case "ready":
+			result = server.healthCheckRunner.RunReadinessChecks()
+		default:
+			result = server.healthCheckRunner.RunLivenessChecks()
+		}
+
+		context.JSON(result)
+		if result.State.Is(healthchecks.HealthCheckState_Healthy) {
+			context.SendStatus(200)
+		} else {
+			context.SendStatus(503)
+		}
+
 		return nil
 	})
 
