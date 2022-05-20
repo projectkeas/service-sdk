@@ -26,33 +26,42 @@ type kubernetesObjectWatcher struct {
 	Name      string
 	Channel   chan map[string]string
 
-	data   map[string]string
-	client *kubernetes.Clientset
-	mutex  *sync.Mutex
+	data       map[string]string
+	client     *kubernetes.Clientset
+	mutex      *sync.Mutex
+	runningK8s bool
 }
 
 func newKubernetesObjectWatcher(objectType string, objectName string) kubernetesObjectWatcher {
 
+	var (
+		namespace string
+		clientCfg *rest.Config
+		client    *kubernetes.Clientset
+	)
+
 	nsBytes, err := ioutil.ReadFile(NS_FILE)
 	if err != nil {
-		panic(fmt.Sprintf("Unable to read namespace file at %s", NS_FILE))
-	}
-	namespace := string(nsBytes)
-
-	clientCfg, err := rest.InClusterConfig()
-	if err != nil {
-		panic("Unable to get our client configuration")
+		fmt.Printf("Unable to read namespace file at %s\n", NS_FILE)
+	} else {
+		namespace = string(nsBytes)
 	}
 
-	client, err := kubernetes.NewForConfig(clientCfg)
+	clientCfg, err = rest.InClusterConfig()
 	if err != nil {
-		panic("Unable to create our clientset")
+		fmt.Println("Unable to get our client configuration")
+	} else {
+		client, err = kubernetes.NewForConfig(clientCfg)
+		if err != nil {
+			fmt.Println("Unable to create our clientset")
+		}
 	}
 
 	watcher := kubernetesObjectWatcher{
-		client: client,
-		mutex:  &sync.Mutex{},
-		data:   map[string]string{},
+		client:     client,
+		mutex:      &sync.Mutex{},
+		data:       map[string]string{},
+		runningK8s: err == nil,
 
 		Channel:   make(chan map[string]string, 10),
 		Name:      objectName,
@@ -64,6 +73,11 @@ func newKubernetesObjectWatcher(objectType string, objectName string) kubernetes
 }
 
 func (watcher *kubernetesObjectWatcher) Watch() {
+
+	if !watcher.runningK8s {
+		return
+	}
+
 	go watchForChange(*watcher, func(currentWatcher kubernetesObjectWatcher, data map[string]string) {
 		watcher.data = data
 		watcher.Channel <- data
