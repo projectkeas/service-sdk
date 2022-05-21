@@ -5,4 +5,5 @@ type Config struct {
 	LogLevel      string
 	IsDevelopment bool
 	Version       string
+	CommitSha     string
 }

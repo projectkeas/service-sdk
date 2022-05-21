@@ -10,6 +10,24 @@ import (
 var Logger *zap.Logger
 
 func Initialize(conf Config) {
+	initialFields := map[string]interface{}{
+		"app": &map[string]string{
+			"name": conf.AppName,
+			"arch": runtime.GOARCH,
+			"os":   runtime.GOOS,
+		},
+	}
+
+	if conf.Version != "" {
+		m, _ := initialFields["app"].(map[string]string)
+		m["version"] = conf.Version
+	}
+
+	if conf.CommitSha != "" {
+		m, _ := initialFields["app"].(map[string]string)
+		m["commit"] = conf.CommitSha
+	}
+
 	config := zap.Config{
 		Level:            zap.NewAtomicLevelAt(getLogLevel(conf.LogLevel)),
 		Development:      conf.IsDevelopment,
@@ -31,19 +49,13 @@ func Initialize(conf Config) {
 			EncodeDuration: zapcore.MillisDurationEncoder,
 			EncodeCaller:   zapcore.ShortCallerEncoder,
 		},
-		InitialFields: map[string]interface{}{
-			"app":  conf.AppName,
-			"arch": runtime.GOARCH,
-			"os":   runtime.GOOS,
-		},
+		InitialFields: initialFields,
 	}
 
-	logger, _ := config.Build()
-
-	if conf.Version != "" {
-		logger = logger.With(zap.String("version", conf.Version))
+	logger, err := config.Build()
+	if err != nil {
+		panic(err)
 	}
-
 	Logger = logger
 }
 
