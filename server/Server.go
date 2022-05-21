@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/contrib/fiberzap"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"go.uber.org/zap"
 
@@ -112,6 +113,9 @@ func runServer(server *Server, development bool) {
 	app.Use(fiberzap.New(fiberzap.Config{
 		Logger: log.Logger.WithOptions(zap.WithCaller(false)),
 		Fields: []string{"status", "method", "url", "ip", "ua", "bytesReceived", "bytesSent", "requestId"},
+	}))
+	app.Use(compress.New(compress.Config{
+		Level: compress.LevelBestSpeed,
 	}))
 
 	app.Get("/_system/health/:type?", func(context *fiber.Ctx) error {
