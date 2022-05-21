@@ -20,11 +20,12 @@ type FiberAppFunc func(app *fiber.App, configurationAccessor func() *configurati
 type Server struct {
 	AppName string
 
-	configMaps        []string
-	configuration     configuration.ConfigurationRoot
-	secrets           []string
-	handlerConfig     FiberAppFunc
-	healthCheckRunner *healthchecks.HealthCheckRunner
+	configMaps             []string
+	configuration          configuration.ConfigurationRoot
+	secrets                []string
+	configurationProviders []configuration.ConfigurationProvider
+	handlerConfig          FiberAppFunc
+	healthCheckRunner      *healthchecks.HealthCheckRunner
 }
 
 func New(appName string) Server {
@@ -40,6 +41,19 @@ func (server *Server) GetConfiguration() *configuration.ConfigurationRoot {
 
 func (server *Server) ConfigureHandlers(handlerConfig FiberAppFunc) *Server {
 	server.handlerConfig = handlerConfig
+	return server
+}
+
+func (server *Server) WithInMemoryConfiguration(name string, data map[string]string) *Server {
+	return server.WithConfigurationProvider(*configuration.NewInMemoryConfigurationProvider(name, data))
+}
+
+func (server *Server) WithEnvironmentVariableConfiguration(prefix string) *Server {
+	return server.WithConfigurationProvider(*configuration.NewEnvironmentConfigurationProvider(prefix))
+}
+
+func (server *Server) WithConfigurationProvider(provider configuration.ConfigurationProvider) *Server {
+	server.configurationProviders = append(server.configurationProviders, provider)
 	return server
 }
 
@@ -93,6 +107,10 @@ func setupConfig(server *Server, development bool, callback func(configuration.C
 
 	for _, name := range server.secrets {
 		builder.AddObservableConfigurationProvider(configuration.NewKubernetesSecretConfigurationProvider(name))
+	}
+
+	for _, provider := range server.configurationProviders {
+		builder.AddConfigurationProvider(provider)
 	}
 
 	config := builder.Build(callback)
