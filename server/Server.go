@@ -4,11 +4,9 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/gofiber/contrib/fiberzap"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/compress"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"go.uber.org/zap"
 
 	"github.com/projectkeas/sdks-service/configuration"
 	"github.com/projectkeas/sdks-service/healthchecks"
@@ -128,10 +126,7 @@ func runServer(server *Server, development bool) {
 	})
 
 	app.Use(recover.New())
-	app.Use(fiberzap.New(fiberzap.Config{
-		Logger: log.Logger.WithOptions(zap.WithCaller(false)),
-		Fields: []string{"status", "method", "url", "ip", "ua", "bytesReceived", "bytesSent", "requestId"},
-	}))
+	app.Use(NewHttpLoggingMiddleware(&LoggingConfig{}))
 	app.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
