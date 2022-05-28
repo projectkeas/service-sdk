@@ -46,8 +46,6 @@ func (opa *OPAService) AddOrUpdatePolicy(namespace string, name string, outputPa
 
 	completePolicy := fmt.Sprintf("package %s\n\n%s\n%s", namespace, defaultValues, policy)
 
-	//fmt.Println(completePolicy)
-
 	query, err := rego.New(
 		rego.Query(outputQuery),
 		rego.Module(namespace+".rego", completePolicy),
@@ -85,9 +83,18 @@ func (opa OPAService) EvaluatePolicy(policy string, input interface{}) (rego.Res
 	return result, nil
 }
 
+func (opa OPAService) GetPolicyKeys() []string {
+	result := []string{}
+
+	for key := range opa.policies {
+		result = append(result, key)
+	}
+
+	return result
+}
+
 func (opa *OPAService) RemovePolicy(namespace string, name string) {
 	delete(opa.policies, formatPolicyKey(namespace, name))
-
 }
 
 func formatPolicyKey(namespace string, name string) string {
