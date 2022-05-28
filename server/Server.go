@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 
@@ -13,108 +14,59 @@ import (
 	log "github.com/projectkeas/sdks-service/logger"
 )
 
-type FiberAppFunc func(app *fiber.App, configurationAccessor func() *configuration.ConfigurationRoot)
+type FiberAppFunc func(app *fiber.App, server *Server)
 
 type Server struct {
 	AppName string
 
-	configMaps             []string
-	configuration          configuration.ConfigurationRoot
-	secrets                []string
-	configurationProviders []configuration.ConfigurationProvider
-	handlerConfig          FiberAppFunc
-	healthCheckRunner      *healthchecks.HealthCheckRunner
+	handlerConfig FiberAppFunc
+	services      map[string]interface{}
 }
 
-func New(appName string) Server {
-	server := Server{AppName: appName, healthCheckRunner: &healthchecks.HealthCheckRunner{}}
-	server.configMaps = []string{}
-	server.secrets = []string{}
+func newServer(appName string, handlerConfig FiberAppFunc) *Server {
+	server := &Server{
+		AppName:       appName,
+		handlerConfig: handlerConfig,
+		services:      map[string]interface{}{},
+	}
 	return server
 }
 
-func (server *Server) GetConfiguration() *configuration.ConfigurationRoot {
-	return &server.configuration
+func (server *Server) GetConfiguration() configuration.ConfigurationRoot {
+	svc, _ := server.GetService(configuration.SERVICE_NAME)
+	return svc.(configuration.ConfigurationRoot)
 }
 
-func (server *Server) ConfigureHandlers(handlerConfig FiberAppFunc) *Server {
-	server.handlerConfig = handlerConfig
-	return server
+func (server *Server) GetHealthCheckRunner() healthchecks.HealthCheckRunner {
+	svc, _ := server.GetService(healthchecks.SERVICE_NAME)
+	return svc.(healthchecks.HealthCheckRunner)
 }
 
-func (server *Server) WithInMemoryConfiguration(name string, data map[string]string) *Server {
-	return server.WithConfigurationProvider(*configuration.NewInMemoryConfigurationProvider(name, data))
+func (server *Server) RegisterService(name string, service interface{}) {
+	_, castSuccessful := service.(Disposable)
+	if castSuccessful {
+		log.Logger.Info(fmt.Sprintf("Registering service: %s", name))
+	}
+
+	server.services[name] = service
 }
 
-func (server *Server) WithEnvironmentVariableConfiguration(prefix string) *Server {
-	return server.WithConfigurationProvider(*configuration.NewEnvironmentConfigurationProvider(prefix))
-}
+func (server Server) GetService(name string) (interface{}, error) {
+	service, found := server.services[name]
 
-func (server *Server) WithConfigurationProvider(provider configuration.ConfigurationProvider) *Server {
-	server.configurationProviders = append(server.configurationProviders, provider)
-	return server
-}
+	if found {
+		return service, nil
+	}
 
-func (server *Server) WithConfigMap(name string) *Server {
-	server.configMaps = append(server.configMaps, name)
-	return server
-}
-
-func (server *Server) WithSecret(name string) *Server {
-	server.secrets = append(server.secrets, name)
-	return server
-}
-
-func (server *Server) WithReadinessHealthCheck(healthCheck healthchecks.HealthCheck) *Server {
-	server.healthCheckRunner.AddLivenessCheck(healthCheck)
-	return server
-}
-
-func (server *Server) WithLivenessHealthCheck(healthCheck healthchecks.HealthCheck) *Server {
-	server.healthCheckRunner.AddLivenessCheck(healthCheck)
-	return server
+	return nil, fmt.Errorf("unable to locate service '%s'", name)
 }
 
 func (server *Server) Run() {
-	runInternal(server, false)
+	runServer(server, false)
 }
 
 func (server *Server) RunDevelopment() {
-	runInternal(server, true)
-}
-
-func runInternal(server *Server, development bool) {
-	server.configuration = setupConfig(server, development, func(config configuration.ConfigurationRoot) {
-		log.Initialize(log.Config{
-			AppName:       server.AppName,
-			LogLevel:      config.GetStringValueOrDefault("log.level", "debug"),
-			IsDevelopment: development,
-		})
-	})
-
-	runServer(server, development)
-}
-
-func setupConfig(server *Server, development bool, callback func(configuration.ConfigurationRoot)) configuration.ConfigurationRoot {
-
-	builder := configuration.NewConfigurationBuilder(development)
-
-	for _, name := range server.configMaps {
-		builder.AddObservableConfigurationProvider(configuration.NewKubernetesConfigMapConfigurationProvider(name))
-	}
-
-	for _, name := range server.secrets {
-		builder.AddObservableConfigurationProvider(configuration.NewKubernetesSecretConfigurationProvider(name))
-	}
-
-	for _, provider := range server.configurationProviders {
-		builder.AddConfigurationProvider(provider)
-	}
-
-	config := builder.Build(callback)
-	callback(config)
-
-	return config
+	runServer(server, true)
 }
 
 func runServer(server *Server, development bool) {
@@ -136,9 +88,9 @@ func runServer(server *Server, development bool) {
 
 		switch context.Params("type") {
 		case "ready":
-			result = server.healthCheckRunner.RunReadinessChecks()
+			result = server.GetHealthCheckRunner().RunReadinessChecks()
 		default:
-			result = server.healthCheckRunner.RunLivenessChecks()
+			result = server.GetHealthCheckRunner().RunLivenessChecks()
 		}
 
 		context.JSON(result)
@@ -152,7 +104,7 @@ func runServer(server *Server, development bool) {
 	})
 
 	if server.handlerConfig != nil {
-		server.handlerConfig(app, server.GetConfiguration)
+		server.handlerConfig(app, server)
 	}
 
 	// Handle graceful shutdown by proxying with a channel
@@ -167,7 +119,6 @@ func runServer(server *Server, development bool) {
 		if err != nil {
 			log.Logger.Panic(err.Error())
 		}
-		log.Logger.Sync()
 	}()
 
 	log.Logger.Info("Application starting...")
@@ -175,4 +126,14 @@ func runServer(server *Server, development bool) {
 	if err != nil {
 		log.Logger.Panic(err.Error())
 	}
+
+	for key, svc := range server.services {
+		disposable, castSuccessful := svc.(Disposable)
+		if castSuccessful {
+			log.Logger.Info(fmt.Sprintf("Deregistering service: %s", key))
+			disposable.Dispose()
+		}
+	}
+
+	log.Logger.Sync()
 }

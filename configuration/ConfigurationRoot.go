@@ -11,6 +11,8 @@ type ConfigurationRoot struct {
 	mutex     *sync.Mutex
 }
 
+const SERVICE_NAME string = "Config"
+
 func (config *ConfigurationRoot) addProvider(provider ConfigurationProvider) {
 	config.providers = append(config.providers, provider)
 }
@@ -21,7 +23,7 @@ func (config *ConfigurationRoot) addObservableProvider(provider ObservableConfig
 	go observeChanges(config, provider)
 }
 
-func (config *ConfigurationRoot) GetStringValueOrDefault(key string, defaultValue string) string {
+func (config ConfigurationRoot) GetStringValueOrDefault(key string, defaultValue string) string {
 	for _, provider := range config.providers {
 		found, value := provider.TryGetValue(key)
 		if found {
