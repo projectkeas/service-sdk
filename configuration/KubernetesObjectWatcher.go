@@ -16,10 +16,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const (
-	NS_FILE = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-)
-
 type kubernetesObjectWatcher struct {
 	Namespace string
 	Type      string
@@ -40,14 +36,14 @@ func newKubernetesObjectWatcher(objectType string, objectName string) kubernetes
 		client    *kubernetes.Clientset
 	)
 
-	nsBytes, err := ioutil.ReadFile(NS_FILE)
+	nsBytes, err := ioutil.ReadFile(K8S_NS_FILE)
 	if err != nil {
-		fmt.Printf("Unable to read namespace file at %s\n", NS_FILE)
+		fmt.Printf("Unable to read namespace file at %s\n", K8S_NS_FILE)
 	} else {
 		namespace = string(nsBytes)
 	}
 
-	clientCfg, err = rest.InClusterConfig()
+	clientCfg, err = GetKubernetesConfig()
 	if err != nil {
 		fmt.Println("Unable to get our client configuration")
 	} else {

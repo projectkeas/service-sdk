@@ -7,6 +7,16 @@ type HealthCheckRunner struct {
 	livenessChecks  []HealthCheck
 }
 
+const SERVICE_NAME string = "HealthChecks"
+
+func NewFromHealthChecks(livenessChecks []HealthCheck, readinessChecks []HealthCheck) HealthCheckRunner {
+	runner := &HealthCheckRunner{
+		livenessChecks:  livenessChecks,
+		readinessChecks: readinessChecks,
+	}
+	return *runner
+}
+
 func (runner *HealthCheckRunner) AddLivenessCheck(check HealthCheck) *HealthCheckRunner {
 	runner.livenessChecks = append(runner.livenessChecks, check)
 	return runner
