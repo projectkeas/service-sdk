@@ -57,7 +57,7 @@ func (opa *OPAService) AddOrUpdatePolicy(namespace string, name string, outputPa
 		return err
 	}
 
-	opa.policies[name] = query
+	opa.policies[formatPolicyKey(namespace, name)] = query
 
 	return nil
 }
@@ -83,4 +83,13 @@ func (opa OPAService) EvaluatePolicy(policy string, input interface{}) (rego.Res
 	}
 
 	return result, nil
+}
+
+func (opa *OPAService) RemovePolicy(namespace string, name string) {
+	delete(opa.policies, formatPolicyKey(namespace, name))
+
+}
+
+func formatPolicyKey(namespace string, name string) string {
+	return fmt.Sprintf("%s|%s", namespace, name)
 }
