@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/projectkeas/sdks-service/configuration"
 	"github.com/projectkeas/sdks-service/healthchecks"
+	"github.com/projectkeas/sdks-service/healthchecks/configHealthCheck"
 	log "github.com/projectkeas/sdks-service/logger"
 	"github.com/projectkeas/sdks-service/opa"
 )
@@ -11,7 +12,9 @@ type ServerBuilder struct {
 	AppName string
 
 	configMaps             []string
+	requiredConfigMaps     []string
 	secrets                []string
+	requiredSecrets        []string
 	configurationProviders []configuration.ConfigurationProvider
 	handlerConfig          FiberAppFunc
 	livenessChecks         []healthchecks.HealthCheck
@@ -40,6 +43,14 @@ func (builder *ServerBuilder) BuildForDevelopment(isDevelopment bool) *Server {
 			IsDevelopment: isDevelopment,
 		})
 	})
+
+	// Ensure that we add health checks for the required properties
+	for _, key := range builder.requiredConfigMaps {
+		builder.WithReadinessHealthCheck(configHealthCheck.NewKubernetesConfigMapCheck(key, config))
+	}
+	for _, key := range builder.requiredSecrets {
+		builder.WithReadinessHealthCheck(configHealthCheck.NewKubernetesSecretCheckCheck(key, config))
+	}
 
 	for key, svc := range builder.services {
 		server.RegisterService(key, svc)
@@ -75,9 +86,19 @@ func (builder *ServerBuilder) WithConfigMap(name string) *ServerBuilder {
 	return builder
 }
 
+func (builder *ServerBuilder) WithRequiredConfigMap(name string) *ServerBuilder {
+	builder.requiredConfigMaps = append(builder.requiredConfigMaps, name)
+	return builder.WithConfigMap(name)
+}
+
 func (builder *ServerBuilder) WithSecret(name string) *ServerBuilder {
 	builder.secrets = append(builder.secrets, name)
 	return builder
+}
+
+func (builder *ServerBuilder) WithRequiredSecret(name string) *ServerBuilder {
+	builder.requiredSecrets = append(builder.requiredSecrets, name)
+	return builder.WithSecret(name)
 }
 
 func (builder *ServerBuilder) WithReadinessHealthCheck(healthCheck healthchecks.HealthCheck) *ServerBuilder {
@@ -99,11 +120,11 @@ func setupConfig(builder *ServerBuilder, development bool, callback func(configu
 	configurationBuilder := configuration.NewConfigurationBuilder(development)
 
 	for _, name := range builder.configMaps {
-		configurationBuilder.AddObservableConfigurationProvider(configuration.NewKubernetesConfigMapConfigurationProvider(name))
+		configurationBuilder.AddConfigurationProvider(configuration.NewKubernetesConfigMapConfigurationProvider(name))
 	}
 
 	for _, name := range builder.secrets {
-		configurationBuilder.AddObservableConfigurationProvider(configuration.NewKubernetesSecretConfigurationProvider(name))
+		configurationBuilder.AddConfigurationProvider(configuration.NewKubernetesSecretConfigurationProvider(name))
 	}
 
 	for _, provider := range builder.configurationProviders {

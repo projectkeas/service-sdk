@@ -6,7 +6,7 @@ import (
 )
 
 type ConfigurationRoot struct {
-	providers []ConfigurationProvider
+	Providers []ConfigurationProvider
 	onChange  func(ConfigurationRoot)
 	mutex     *sync.Mutex
 }
@@ -14,17 +14,17 @@ type ConfigurationRoot struct {
 const SERVICE_NAME string = "Config"
 
 func (config *ConfigurationRoot) addProvider(provider ConfigurationProvider) {
-	config.providers = append(config.providers, provider)
+	config.Providers = append(config.Providers, provider)
 }
 
 func (config *ConfigurationRoot) addObservableProvider(provider ObservableConfigurationProvider) {
-	config.providers = append(config.providers, provider)
+	config.Providers = append(config.Providers, provider)
 
 	go observeChanges(config, provider)
 }
 
 func (config ConfigurationRoot) GetStringValueOrDefault(key string, defaultValue string) string {
-	for _, provider := range config.providers {
+	for _, provider := range config.Providers {
 		found, value := provider.TryGetValue(key)
 		if found {
 			return value
