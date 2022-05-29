@@ -11,7 +11,7 @@ import (
 func main() {
 	app := server.New("testing")
 
-	app.WithConfigMap("config-1").WithInMemoryConfiguration("default", map[string]string{
+	app.WithRequiredConfigMap("config-1").WithInMemoryConfiguration("default", map[string]string{
 		"test": "value",
 	}).WithEnvironmentVariableConfiguration("DOTNET_")
 
