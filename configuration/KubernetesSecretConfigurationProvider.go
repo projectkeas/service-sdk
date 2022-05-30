@@ -98,7 +98,22 @@ func onUpdatedSecret(provider *KubernetesSecretConfigurationProvider) func(oldSe
 }
 
 func addOrUpdateSecret(provider *KubernetesSecretConfigurationProvider, secret *types.Secret) {
-	provider.data = secret.StringData
+
+	if secret.StringData != nil {
+		provider.data = secret.StringData
+	} else {
+		data := map[string]string{}
+		for key, value := range secret.Data {
+			data[key] = string(value)
+		}
+
+		provider.data = data
+	}
+
+	if provider.data == nil {
+		provider.data = map[string]string{}
+	}
+
 	provider.Exists = true
 	provider.updateChannel <- provider.data
 }
