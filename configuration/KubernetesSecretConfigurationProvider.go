@@ -12,10 +12,11 @@ import (
 )
 
 type KubernetesSecretConfigurationProvider struct {
-	name          string
-	data          map[string]string
-	updateChannel chan map[string]string
-	Exists        bool
+	name            string
+	data            map[string]string
+	updateChannel   chan map[string]string
+	resourceVersion string
+	Exists          bool
 }
 
 func NewKubernetesSecretConfigurationProvider(name string) *KubernetesSecretConfigurationProvider {
@@ -67,8 +68,7 @@ func onNewSecret(provider *KubernetesSecretConfigurationProvider) func(newSecret
 	return func(newSecret interface{}) {
 		secret, successfulCast := newSecret.(*types.Secret)
 		if successfulCast && secret.Name == provider.name {
-			addOrUpdateSecret(provider, secret)
-			if log.Logger != nil {
+			if addOrUpdateSecret(provider, secret) && log.Logger != nil {
 				log.Logger.Debug("Secret added", zap.Any("secret", map[string]string{
 					"name":      secret.Name,
 					"namespace": secret.Namespace,
@@ -84,8 +84,7 @@ func onUpdatedSecret(provider *KubernetesSecretConfigurationProvider) func(oldSe
 	return func(oldSecret interface{}, newSecret interface{}) {
 		secret, successfulCast := newSecret.(*types.Secret)
 		if successfulCast && secret.Name == provider.name {
-			addOrUpdateSecret(provider, secret)
-			if log.Logger != nil {
+			if addOrUpdateSecret(provider, secret) && log.Logger != nil {
 				log.Logger.Debug("Secret updated", zap.Any("secret", map[string]string{
 					"name":      secret.Name,
 					"namespace": secret.Namespace,
@@ -97,7 +96,11 @@ func onUpdatedSecret(provider *KubernetesSecretConfigurationProvider) func(oldSe
 	}
 }
 
-func addOrUpdateSecret(provider *KubernetesSecretConfigurationProvider, secret *types.Secret) {
+func addOrUpdateSecret(provider *KubernetesSecretConfigurationProvider, secret *types.Secret) bool {
+
+	if secret.ResourceVersion == provider.resourceVersion {
+		return false
+	}
 
 	if secret.StringData != nil {
 		provider.data = secret.StringData
@@ -114,8 +117,10 @@ func addOrUpdateSecret(provider *KubernetesSecretConfigurationProvider, secret *
 		provider.data = map[string]string{}
 	}
 
+	provider.resourceVersion = secret.ResourceVersion
 	provider.Exists = true
 	provider.updateChannel <- provider.data
+	return true
 }
 
 func onDeletedSecret(provider *KubernetesSecretConfigurationProvider) func(deletedSecret interface{}) {

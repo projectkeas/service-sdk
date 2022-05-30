@@ -12,10 +12,11 @@ import (
 )
 
 type KubernetesConfigMapConfigurationProvider struct {
-	name          string
-	data          map[string]string
-	updateChannel chan map[string]string
-	Exists        bool
+	name            string
+	data            map[string]string
+	updateChannel   chan map[string]string
+	resourceVersion string
+	Exists          bool
 }
 
 func NewKubernetesConfigMapConfigurationProvider(name string) *KubernetesConfigMapConfigurationProvider {
@@ -67,8 +68,7 @@ func onNewConfigMap(provider *KubernetesConfigMapConfigurationProvider) func(new
 	return func(newConfigMap interface{}) {
 		configMap, successfulCast := newConfigMap.(*types.ConfigMap)
 		if successfulCast && configMap.Name == provider.name {
-			addOrUpdateConfigMap(provider, configMap)
-			if log.Logger != nil {
+			if addOrUpdateConfigMap(provider, configMap) && log.Logger != nil {
 				log.Logger.Debug("ConfigMap added", zap.Any("configMap", map[string]string{
 					"name":      configMap.Name,
 					"namespace": configMap.Namespace,
@@ -84,8 +84,7 @@ func onUpdatedConfigMap(provider *KubernetesConfigMapConfigurationProvider) func
 	return func(oldConfigMap interface{}, newConfigMap interface{}) {
 		configMap, successfulCast := newConfigMap.(*types.ConfigMap)
 		if successfulCast && configMap.Name == provider.name {
-			addOrUpdateConfigMap(provider, configMap)
-			if log.Logger != nil {
+			if addOrUpdateConfigMap(provider, configMap) && log.Logger != nil {
 				log.Logger.Debug("ConfigMap updated", zap.Any("configMap", map[string]string{
 					"name":      configMap.Name,
 					"namespace": configMap.Namespace,
@@ -97,10 +96,18 @@ func onUpdatedConfigMap(provider *KubernetesConfigMapConfigurationProvider) func
 	}
 }
 
-func addOrUpdateConfigMap(provider *KubernetesConfigMapConfigurationProvider, configMap *types.ConfigMap) {
+func addOrUpdateConfigMap(provider *KubernetesConfigMapConfigurationProvider, configMap *types.ConfigMap) bool {
+
+	if configMap.ResourceVersion == provider.resourceVersion {
+		return false
+	}
+
+	provider.resourceVersion = configMap.ResourceVersion
 	provider.data = configMap.Data
 	provider.Exists = true
 	provider.updateChannel <- provider.data
+
+	return true
 }
 
 func onDeletedConfigMap(provider *KubernetesConfigMapConfigurationProvider) func(deletedConfigMap interface{}) {
