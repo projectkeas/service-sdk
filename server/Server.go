@@ -124,7 +124,7 @@ func runServer(server *Server, development bool) {
 	}()
 
 	log.Logger.Info("Application starting...")
-	err := app.Listen(":5000")
+	err := app.Listen(":" + server.GetConfiguration().GetStringValueOrDefault("server.port", "5000"))
 	if err != nil {
 		log.Logger.Panic(err.Error())
 	}
