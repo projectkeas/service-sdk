@@ -12,15 +12,17 @@ import (
 )
 
 type KubernetesSecretConfigurationProvider struct {
-	name   string
-	data   map[string]string
-	Exists bool
+	name          string
+	data          map[string]string
+	updateChannel chan map[string]string
+	Exists        bool
 }
 
 func NewKubernetesSecretConfigurationProvider(name string) *KubernetesSecretConfigurationProvider {
 	provider := &KubernetesSecretConfigurationProvider{
-		name: name,
-		data: map[string]string{},
+		name:          name,
+		data:          map[string]string{},
+		updateChannel: make(chan map[string]string),
 	}
 
 	informer := GetInformer()
@@ -55,6 +57,10 @@ func (provider *KubernetesSecretConfigurationProvider) TryGetValue(key string) (
 	}
 
 	return false, ""
+}
+
+func (provider *KubernetesSecretConfigurationProvider) getChannel() chan map[string]string {
+	return provider.updateChannel
 }
 
 func onNewSecret(provider *KubernetesSecretConfigurationProvider) func(newSecret interface{}) {
@@ -94,6 +100,7 @@ func onUpdatedSecret(provider *KubernetesSecretConfigurationProvider) func(oldSe
 func addOrUpdateSecret(provider *KubernetesSecretConfigurationProvider, secret *types.Secret) {
 	provider.data = secret.StringData
 	provider.Exists = true
+	provider.updateChannel <- provider.data
 }
 
 func onDeletedSecret(provider *KubernetesSecretConfigurationProvider) func(deletedSecret interface{}) {
@@ -108,6 +115,7 @@ func onDeletedSecret(provider *KubernetesSecretConfigurationProvider) func(delet
 					"namespace": secret.Namespace,
 				}))
 			}
+			provider.updateChannel <- provider.data
 		} else if !successfulCast {
 			log.Logger.Error("could not cast config map")
 		}

@@ -11,9 +11,8 @@ type ConfigurationBuilder struct {
 	observableProviders []ObservableConfigurationProvider
 }
 
-func NewConfigurationBuilder(development bool) ConfigurationBuilder {
-	builder := ConfigurationBuilder{isDevelopment: development}
-	return builder
+func NewConfigurationBuilder(development bool) *ConfigurationBuilder {
+	return &ConfigurationBuilder{isDevelopment: development}
 }
 
 func (builder *ConfigurationBuilder) AddConfigurationProvider(provider ConfigurationProvider) *ConfigurationBuilder {
@@ -31,10 +30,13 @@ func (builder *ConfigurationBuilder) ClearProviders() *ConfigurationBuilder {
 	return builder
 }
 
-func (builder *ConfigurationBuilder) Build(callback func(ConfigurationRoot)) ConfigurationRoot {
-	config := ConfigurationRoot{
-		onChange: callback,
-		mutex:    &sync.Mutex{},
+func (builder *ConfigurationBuilder) Build(callbacks ...func(ConfigurationRoot)) *ConfigurationRoot {
+	config := &ConfigurationRoot{
+		mutex: &sync.Mutex{},
+	}
+
+	for _, callback := range callbacks {
+		config.RegisterChangeNotificationHandler(callback)
 	}
 
 	for _, provider := range builder.providers {

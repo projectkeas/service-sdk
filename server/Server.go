@@ -20,38 +20,40 @@ type Server struct {
 	AppName string
 
 	handlerConfig FiberAppFunc
-	services      map[string]interface{}
+	services      map[string]*interface{}
 }
 
-func newServer(appName string, handlerConfig FiberAppFunc) *Server {
-	server := &Server{
+func newServer(appName string, handlerConfig FiberAppFunc) Server {
+	server := Server{
 		AppName:       appName,
 		handlerConfig: handlerConfig,
-		services:      map[string]interface{}{},
+		services:      map[string]*interface{}{},
 	}
 	return server
 }
 
-func (server *Server) GetConfiguration() configuration.ConfigurationRoot {
+func (server *Server) GetConfiguration() *configuration.ConfigurationRoot {
 	svc, _ := server.GetService(configuration.SERVICE_NAME)
-	return svc.(configuration.ConfigurationRoot)
+	temp := (*svc).(*configuration.ConfigurationRoot)
+	return temp
 }
 
-func (server *Server) GetHealthCheckRunner() healthchecks.HealthCheckRunner {
+func (server *Server) GetHealthCheckRunner() *healthchecks.HealthCheckRunner {
 	svc, _ := server.GetService(healthchecks.SERVICE_NAME)
-	return svc.(healthchecks.HealthCheckRunner)
+	temp := (*svc).(healthchecks.HealthCheckRunner)
+	return &temp
 }
 
 func (server *Server) RegisterService(name string, service interface{}) {
-	_, castSuccessful := service.(Disposable)
+	_, castSuccessful := (service).(Disposable)
 	if castSuccessful {
 		log.Logger.Info(fmt.Sprintf("Registering service: %s", name))
 	}
 
-	server.services[name] = service
+	server.services[name] = &service
 }
 
-func (server Server) GetService(name string) (interface{}, error) {
+func (server *Server) GetService(name string) (*interface{}, error) {
 	service, found := server.services[name]
 
 	if found {
@@ -128,7 +130,7 @@ func runServer(server *Server, development bool) {
 	}
 
 	for key, svc := range server.services {
-		disposable, castSuccessful := svc.(Disposable)
+		disposable, castSuccessful := (*svc).(Disposable)
 		if castSuccessful {
 			log.Logger.Info(fmt.Sprintf("Deregistering service: %s", key))
 			disposable.Dispose()

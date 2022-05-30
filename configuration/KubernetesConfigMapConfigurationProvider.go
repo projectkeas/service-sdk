@@ -12,15 +12,17 @@ import (
 )
 
 type KubernetesConfigMapConfigurationProvider struct {
-	name   string
-	data   map[string]string
-	Exists bool
+	name          string
+	data          map[string]string
+	updateChannel chan map[string]string
+	Exists        bool
 }
 
 func NewKubernetesConfigMapConfigurationProvider(name string) *KubernetesConfigMapConfigurationProvider {
 	provider := &KubernetesConfigMapConfigurationProvider{
-		name: name,
-		data: map[string]string{},
+		name:          name,
+		data:          map[string]string{},
+		updateChannel: make(chan map[string]string),
 	}
 
 	informer := GetInformer()
@@ -55,6 +57,10 @@ func (provider *KubernetesConfigMapConfigurationProvider) TryGetValue(key string
 	}
 
 	return false, ""
+}
+
+func (provider *KubernetesConfigMapConfigurationProvider) getChannel() chan map[string]string {
+	return provider.updateChannel
 }
 
 func onNewConfigMap(provider *KubernetesConfigMapConfigurationProvider) func(newConfigMap interface{}) {
@@ -94,6 +100,7 @@ func onUpdatedConfigMap(provider *KubernetesConfigMapConfigurationProvider) func
 func addOrUpdateConfigMap(provider *KubernetesConfigMapConfigurationProvider, configMap *types.ConfigMap) {
 	provider.data = configMap.Data
 	provider.Exists = true
+	provider.updateChannel <- provider.data
 }
 
 func onDeletedConfigMap(provider *KubernetesConfigMapConfigurationProvider) func(deletedConfigMap interface{}) {
@@ -108,6 +115,7 @@ func onDeletedConfigMap(provider *KubernetesConfigMapConfigurationProvider) func
 					"namespace": configMap.Namespace,
 				}))
 			}
+			provider.updateChannel <- provider.data
 		} else if !successfulCast {
 			log.Logger.Error("could not cast config map")
 		}

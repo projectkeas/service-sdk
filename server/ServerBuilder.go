@@ -52,15 +52,16 @@ func (builder *ServerBuilder) BuildForDevelopment(isDevelopment bool) *Server {
 		builder.WithReadinessHealthCheck(configHealthCheck.NewKubernetesSecretCheckCheck(key, config))
 	}
 
+	// Register default services
+	builder.WithService(configuration.SERVICE_NAME, config)
+	builder.WithService(healthchecks.SERVICE_NAME, healthchecks.NewFromHealthChecks(builder.livenessChecks, builder.readinessChecks))
+	builder.WithService(opa.SERVICE_NAME, opa.OPAService{})
+
 	for key, svc := range builder.services {
 		server.RegisterService(key, svc)
 	}
 
-	server.RegisterService(configuration.SERVICE_NAME, config)
-	server.RegisterService(healthchecks.SERVICE_NAME, healthchecks.NewFromHealthChecks(builder.livenessChecks, builder.readinessChecks))
-	server.RegisterService(opa.SERVICE_NAME, opa.OPAService{})
-
-	return server
+	return &server
 }
 
 func (builder *ServerBuilder) ConfigureHandlers(handlerConfig FiberAppFunc) *ServerBuilder {
@@ -111,20 +112,21 @@ func (builder *ServerBuilder) WithLivenessHealthCheck(healthCheck healthchecks.H
 	return builder
 }
 
-func (builder *ServerBuilder) WithService(name string, service interface{}) {
+func (builder *ServerBuilder) WithService(name string, service interface{}) *ServerBuilder {
 	builder.services[name] = service
+	return builder
 }
 
-func setupConfig(builder *ServerBuilder, development bool, callback func(configuration.ConfigurationRoot)) configuration.ConfigurationRoot {
+func setupConfig(builder *ServerBuilder, development bool, callback func(configuration.ConfigurationRoot)) *configuration.ConfigurationRoot {
 
 	configurationBuilder := configuration.NewConfigurationBuilder(development)
 
 	for _, name := range builder.configMaps {
-		configurationBuilder.AddConfigurationProvider(configuration.NewKubernetesConfigMapConfigurationProvider(name))
+		configurationBuilder.AddObservableConfigurationProvider(configuration.NewKubernetesConfigMapConfigurationProvider(name))
 	}
 
 	for _, name := range builder.secrets {
-		configurationBuilder.AddConfigurationProvider(configuration.NewKubernetesSecretConfigurationProvider(name))
+		configurationBuilder.AddObservableConfigurationProvider(configuration.NewKubernetesSecretConfigurationProvider(name))
 	}
 
 	for _, provider := range builder.configurationProviders {
@@ -132,7 +134,7 @@ func setupConfig(builder *ServerBuilder, development bool, callback func(configu
 	}
 
 	config := configurationBuilder.Build(callback)
-	callback(config)
+	callback(*config)
 
 	return config
 }

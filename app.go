@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/projectkeas/sdks-service/configuration"
 	"github.com/projectkeas/sdks-service/healthchecks/http"
+	log "github.com/projectkeas/sdks-service/logger"
 	"github.com/projectkeas/sdks-service/server"
 )
 
@@ -25,5 +27,13 @@ func main() {
 		})
 	})
 
-	app.Build().Run()
+	host := app.Build()
+	config := host.GetConfiguration()
+	config.RegisterChangeNotificationHandler(func(config configuration.ConfigurationRoot) {
+		if log.Logger != nil {
+			log.Logger.Info("YAY!")
+		}
+	})
+
+	host.Run()
 }

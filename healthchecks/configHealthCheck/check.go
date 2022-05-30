@@ -9,22 +9,22 @@ import (
 
 type KubernetesConfigMapCheck struct {
 	name   string
-	config configuration.ConfigurationRoot
+	config *configuration.ConfigurationRoot
 }
 
 type KubernetesSecretCheck struct {
 	name   string
-	config configuration.ConfigurationRoot
+	config *configuration.ConfigurationRoot
 }
 
-func NewKubernetesConfigMapCheck(name string, config configuration.ConfigurationRoot) KubernetesConfigMapCheck {
+func NewKubernetesConfigMapCheck(name string, config *configuration.ConfigurationRoot) KubernetesConfigMapCheck {
 	return KubernetesConfigMapCheck{
 		name:   name,
 		config: config,
 	}
 }
 
-func NewKubernetesSecretCheckCheck(name string, config configuration.ConfigurationRoot) KubernetesConfigMapCheck {
+func NewKubernetesSecretCheckCheck(name string, config *configuration.ConfigurationRoot) KubernetesConfigMapCheck {
 	return KubernetesConfigMapCheck{
 		name:   name,
 		config: config,

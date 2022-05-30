@@ -6,9 +6,9 @@ import (
 )
 
 type ConfigurationRoot struct {
-	Providers []ConfigurationProvider
-	onChange  func(ConfigurationRoot)
-	mutex     *sync.Mutex
+	Providers        []ConfigurationProvider
+	onChangeHandlers []func(ConfigurationRoot)
+	mutex            *sync.Mutex
 }
 
 const SERVICE_NAME string = "Config"
@@ -18,12 +18,12 @@ func (config *ConfigurationRoot) addProvider(provider ConfigurationProvider) {
 }
 
 func (config *ConfigurationRoot) addObservableProvider(provider ObservableConfigurationProvider) {
-	config.Providers = append(config.Providers, provider)
+	config.addProvider(provider)
 
 	go observeChanges(config, provider)
 }
 
-func (config ConfigurationRoot) GetStringValueOrDefault(key string, defaultValue string) string {
+func (config *ConfigurationRoot) GetStringValueOrDefault(key string, defaultValue string) string {
 	for _, provider := range config.Providers {
 		found, value := provider.TryGetValue(key)
 		if found {
@@ -32,6 +32,12 @@ func (config ConfigurationRoot) GetStringValueOrDefault(key string, defaultValue
 	}
 
 	return defaultValue
+}
+
+func (config *ConfigurationRoot) RegisterChangeNotificationHandler(handler func(ConfigurationRoot)) *ConfigurationRoot {
+	config.onChangeHandlers = append(config.onChangeHandlers, handler)
+	handler(*config)
+	return config
 }
 
 func observeChanges(config *ConfigurationRoot, provider ObservableConfigurationProvider) {
@@ -48,7 +54,9 @@ func observeChanges(config *ConfigurationRoot, provider ObservableConfigurationP
 				config.mutex.Unlock()
 			}()
 
-			config.onChange(*config)
+			for _, handler := range config.onChangeHandlers {
+				handler(*config)
+			}
 		}()
 	}
 }
