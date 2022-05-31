@@ -24,8 +24,8 @@ func NewKubernetesConfigMapCheck(name string, config *configuration.Configuratio
 	}
 }
 
-func NewKubernetesSecretCheckCheck(name string, config *configuration.ConfigurationRoot) KubernetesConfigMapCheck {
-	return KubernetesConfigMapCheck{
+func NewKubernetesSecretCheckCheck(name string, config *configuration.ConfigurationRoot) KubernetesSecretCheck {
+	return KubernetesSecretCheck{
 		name:   name,
 		config: config,
 	}
