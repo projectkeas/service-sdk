@@ -29,7 +29,7 @@ func GetInformer() informers.SharedInformerFactory {
 		return informer
 	}
 
-	config, err := GetKubernetesConfig()
+	config, namespace, err := GetKubernetesConfig()
 	if err != nil {
 		panic(err)
 	}
@@ -39,6 +39,6 @@ func GetInformer() informers.SharedInformerFactory {
 		panic(err)
 	}
 
-	informer = informers.NewSharedInformerFactory(client, 5*time.Minute)
+	informer = informers.NewSharedInformerFactoryWithOptions(client, 5*time.Minute, informers.WithNamespace(namespace))
 	return informer
 }

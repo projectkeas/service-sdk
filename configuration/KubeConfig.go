@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"flag"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -18,12 +19,13 @@ const (
 var (
 	config     *rest.Config
 	configLock = &sync.Mutex{}
+	namespace  = "keas"
 )
 
-func GetKubernetesConfig() (*rest.Config, error) {
+func GetKubernetesConfig() (*rest.Config, string, error) {
 
 	if config != nil {
-		return config, nil
+		return config, namespace, nil
 	}
 
 	// lock ensures that we only ever have one config file
@@ -34,14 +36,16 @@ func GetKubernetesConfig() (*rest.Config, error) {
 	// there's a slight race condition between the first check and the lock,
 	// so check again inside a synchronised context
 	if config != nil {
-		return config, nil
+		return config, namespace, nil
 	}
 
 	var err error
 
 	if _, err = os.Stat(K8S_NS_FILE); err == nil {
+		ns, _ := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+		namespace = string(ns)
 		config, err = rest.InClusterConfig()
-		return config, err
+		return config, namespace, err
 	}
 
 	var kubeconfig *string
@@ -52,5 +56,5 @@ func GetKubernetesConfig() (*rest.Config, error) {
 	}
 
 	config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
-	return config, err
+	return config, namespace, err
 }
