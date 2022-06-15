@@ -77,10 +77,32 @@ func runServer(server *Server, development bool) {
 		DisableDefaultDate:    true,
 		DisableStartupMessage: !development,
 		EnablePrintRoutes:     development,
+		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
+			// Status code defaults to 500
+			code := fiber.StatusInternalServerError
+
+			// Retrieve the custom status code if it's an fiber.*Error
+			if e, ok := err.(*fiber.Error); ok {
+				code = e.Code
+			}
+
+			// Send custom error json
+			errorResult := map[string]interface{}{
+				"message": "An error occurred whilst processing your request. Please check the logs for more information.",
+			}
+
+			if development {
+				errorResult["error"] = err.Error()
+			}
+
+			ctx.Status(code).JSON(errorResult)
+			return nil
+		},
 	})
 
-	app.Use(recover.New())
+	// Logging must be the first middleware or we miss 500 status codes
 	app.Use(NewHttpLoggingMiddleware(&LoggingConfig{}))
+	app.Use(recover.New())
 	app.Use(compress.New(compress.Config{
 		Level: compress.LevelBestSpeed,
 	}))
