@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 )
 
@@ -28,6 +29,34 @@ func (config *ConfigurationRoot) GetStringValueOrDefault(key string, defaultValu
 		found, value := provider.TryGetValue(key)
 		if found {
 			return value
+		}
+	}
+
+	return defaultValue
+}
+
+func (config *ConfigurationRoot) GetIntValueOrDefault(key string, defaultValue int) int {
+	for _, provider := range config.Providers {
+		found, value := provider.TryGetValue(key)
+		if found {
+			i, err := strconv.Atoi(value)
+			if err == nil {
+				return i
+			}
+		}
+	}
+
+	return defaultValue
+}
+
+func (config *ConfigurationRoot) GetBooleanValueOrDefault(key string, defaultValue bool) bool {
+	for _, provider := range config.Providers {
+		found, value := provider.TryGetValue(key)
+		if found {
+			b, err := strconv.ParseBool(value)
+			if err == nil {
+				return b
+			}
 		}
 	}
 
