@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/cloudevents/sdk-go/v2 v2.10.1
 	github.com/gofiber/fiber/v2 v2.34.1
-	github.com/open-policy-agent/opa v0.41.0
+	github.com/open-policy-agent/opa v0.42.0
 	go.uber.org/zap v1.21.0
 	k8s.io/api v0.24.2
 	k8s.io/apimachinery v0.24.2
