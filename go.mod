@@ -7,8 +7,8 @@ require (
 	github.com/gofiber/fiber/v2 v2.35.0
 	github.com/open-policy-agent/opa v0.42.2
 	go.uber.org/zap v1.21.0
-	k8s.io/api v0.24.2
-	k8s.io/apimachinery v0.24.2
+	k8s.io/api v0.24.3
+	k8s.io/apimachinery v0.24.3
 	k8s.io/client-go v0.24.1
 )
 
