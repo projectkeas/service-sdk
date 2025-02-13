@@ -3,12 +3,12 @@ module github.com/projectkeas/sdks-service
 go 1.18
 
 require (
-	github.com/cloudevents/sdk-go/v2 v2.10.1
-	github.com/gofiber/fiber/v2 v2.35.0
-	github.com/open-policy-agent/opa v0.43.0
-	go.uber.org/zap v1.21.0
-	k8s.io/api v0.24.3
-	k8s.io/apimachinery v0.24.3
+	github.com/cloudevents/sdk-go/v2 v2.15.2
+	github.com/gofiber/fiber/v2 v2.52.6
+	github.com/open-policy-agent/opa v1.1.0
+	go.uber.org/zap v1.27.0
+	k8s.io/api v0.32.2
+	k8s.io/apimachinery v0.32.2
 	k8s.io/client-go v0.24.1
 )
 
